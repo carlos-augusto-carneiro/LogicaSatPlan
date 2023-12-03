@@ -1,0 +1,5 @@
+Para executar uma instancia, voce deve ter:
+
+1- python instalado
+2- python-sat instalado: pip install python-sat
+3- digitar: python main.py blocks-4.0.strips (exemplo de arquivo como entrada)
