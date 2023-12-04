@@ -23,91 +23,82 @@ if __name__ == '__main__':
         sys.exit(1)    
 
     instanceSatPlan = SatPlanInstance(sys.argv[1])
+    # Crie uma instância do SatPlanInstanceMapper
     instanceMapper = SatPlanInstanceMapper()
+
+    # Adquira os átomos e ações da instância
+    all_atoms = instanceSatPlan.get_atoms()
+    actions = instanceSatPlan.get_actions()
+
+    # Mapeie os átomos para inteiros positivos
+    for atom in all_atoms:
+        instanceMapper.add_literal_to_mapping(atom)
+
+    # Inicialize o solver Glucose3
     solver = Glucose3()
 
-    instanceMapper.add_list_of_literals_to_mapping(instanceSatPlan.get_atoms())
+    # Crie a lista de cláusulas para a fórmula SAT
+    clauses = []
 
-    for initial_atom in instanceSatPlan.get_initial_state():
-        if initial_atom[0] == "~":
-            initial_atom_int = instanceMapper.mapping[initial_atom.replace("~", "")]    
-        else:
-            initial_atom_int = instanceMapper.mapping[initial_atom]
-        solver.add_clause([initial_atom_int])
+    # Adicione as cláusulas para a configuração inicial
+    initial_state_literals = create_state_from_literals(instanceSatPlan.get_initial_state(), all_atoms)
+    clauses.append(instanceMapper.get_list_of_literals_from_mapping(initial_state_literals))
 
-'''
-    for action in instanceSatPlan.get_actions():
-        if action[0] == '~':
-            action_int = instanceMapper.mapping[action.replace("~", "")]    
-        else:
-            action_int = instanceMapper.mapping[action]
+    # Adicione as cláusulas para a configuração final
+    final_state_literals = create_state_from_literals(instanceSatPlan.get_final_state(), all_atoms)
+    clauses.append(instanceMapper.get_list_of_literals_from_mapping(final_state_literals))
 
-        # Adicione cláusulas para as pré-condições da ação
-        for precondition in instanceSatPlan.get_action_preconditions(action):
-            if precondition[0] == "~":
-                precondition_int = instanceMapper.mapping[precondition.replace("~", "")]    
-            else:
-                precondition_int = instanceMapper.mapping[precondition]
-            solver.add_clause([action_int*(-1), precondition_int])
+    # Adicione cláusulas para garantir que cada ação seja executada no máximo uma vez
+    for idx in range(1, len(actions) + 1):
+        action_literals = create_literals_for_level_from_list(idx, actions)
+        clauses.append([-literal for literal in instanceMapper.get_list_of_literals_from_mapping(action_literals)])
+        for j in range(1, len(actions) + 1):
+            if j != idx:
+                clauses.append([-literal for literal in instanceMapper.get_list_of_literals_from_mapping(action_literals)])
 
-        # Adicione cláusulas para as pós-condições da ação
-        for poscondition in instanceSatPlan.get_action_posconditions(action):
-            if poscondition[0] == "~":
-                poscondition_int = instanceMapper.mapping[poscondition.replace("~", "")]
-            else:
-                poscondition_int = instanceMapper.mapping[poscondition]
-            solver.add_clause([action_int, poscondition_int*(-1)])
+    # Adicione cláusulas para garantir que apenas uma ação seja tomada em cada nível
+    for idx in range(1, len(actions) + 1):
+        action_literals = create_literals_for_level_from_list(idx, actions)
+        clauses.append(instanceMapper.get_list_of_literals_from_mapping(action_literals))
 
-    # Adicione cláusulas para as condições iniciais
+    # Adicione cláusulas para garantir a sequência correta de ações
+    for idx in range(1, len(actions)):
+        current_action_literals = create_literals_for_level_from_list(idx, actions)
+        next_action_literals = create_literals_for_level_from_list(idx + 1, actions)
+        for action_literal in current_action_literals:
+            clauses.append([-instanceMapper.get_literal_from_mapping(action_literal)])
+            clauses.append([instanceMapper.get_literal_from_mapping(action_literal), instanceMapper.get_literal_from_mapping(next_action_literals[0])])
 
-    # Adicione cláusulas para as condições finais
-    for final_atom in instanceSatPlan.get_final_state():
-        if final_atom[0] == "~":
-            final_atom_int = instanceMapper.mapping[final_atom.replace("~", "")]    
-        else:
-            final_atom_int = instanceMapper.mapping[final_atom]
-        solver.add_clause([final_atom_int])
+    # Adicione cláusulas para garantir as pré-condições e pós-condições corretas
+    for idx, action in enumerate(actions, start=1):
+        preconditions_literals = create_state_from_literals(instanceSatPlan.get_action_preconditions(action), all_atoms)
+        postconditions_literals = create_state_from_literals(instanceSatPlan.get_action_posconditions(action), all_atoms)
+        action_literals = create_literals_for_level_from_list(idx, actions)
 
-    # Verifique a satisfatibilidade
+        # Pré-condições verdadeiras para executar a ação
+        for precondition_literal in preconditions_literals:
+            clauses.append([instanceMapper.get_literal_from_mapping(precondition_literal)] + [-literal for literal in instanceMapper.get_list_of_literals_from_mapping(action_literals)])
+
+        # Pós-condições após executar a ação
+        for postcondition_literal in postconditions_literals:
+            clauses.append([instanceMapper.get_literal_from_mapping(postcondition_literal), instanceMapper.get_literal_from_mapping(action_literals)])
+
+    # Adicione cláusulas para garantir a consistência entre os níveis
+    for idx in range(1, len(actions)):
+        current_action_literals = create_literals_for_level_from_list(idx, actions)
+        next_action_literals = create_literals_for_level_from_list(idx + 1, actions)
+        for current_literal, next_literal in zip(current_action_literals, next_action_literals):
+            clauses.append([-instanceMapper.get_literal_from_mapping(current_literal), instanceMapper.get_literal_from_mapping(next_literal)])
+
+    # Adicione todas as cláusulas ao solver
+    for clause in clauses:
+        solver.add_clause(clause)
+
+    # Resolva o SAT
     if solver.solve():
-        # A fórmula é satisfatível, a solução foi encontrada
+        print("Solução encontrada:")
         model = solver.get_model()
-        print(model)
+        model_literals = instanceMapper.get_list_of_literals_from_mapping_reverse(model)
+        print(model_literals)
     else:
         print("Não foi possível encontrar uma solução.")
-        '''
-'''
-        # Extraia a sequência de ações da valoração das variáveis
-        actions_sequence = []
-        for level, atom in enumerate(instanceSatPlan.get_actions(), start=1):
-            atom_int = instanceMapper.mapping[atom]
-
-            # Verifique se a ação é escolhida no nível atual
-            if atom_int in model:
-                actions_sequence.append(f"{level}_{atom}")
-
-        # Imprima a sequência de ações
-        print("Sequência de ações:")
-        for action in actions_sequence:
-            print(action)
-'''
-
-
-
-
-'''
-    #o codigo a seguir é exemplo de uso
-    satPlanInstance = SatPlanInstance(sys.argv[1])
-    instanceMapper  = SatPlanInstanceMapper()
-    instanceMapper.add_list_of_literals_to_mapping(satPlanInstance.get_atoms())
-    print(instanceMapper.mapping)
-    a = satPlanInstance.get_state_atoms()
-    a = satPlanInstance.get_action_posconditions("pick-up_b")
-    b = instanceMapper.get_list_of_literals_from_mapping(a)
-    print(b)
-    print(instanceMapper.get_literal_from_mapping_reverse(-8))
-    print(create_literals_for_level_from_list(5,a))
-    print(create_state_from_literals(['holding_b','on_a_b'],satPlanInstance.get_atoms()))
-'''
-
-
