@@ -68,7 +68,8 @@ if __name__ == '__main__':
     if sat_ou_nsat:
         print(solver.get_model())
         for i in model:
-            print(f"{i}")
+            if i in instanceMapper.mapping:
+                print(instanceMapper.mapping_reverse[i])
         '''for i in instanceMapper.get_list_of_literals_from_mapping(instanceSatPlan.get_atoms()):
             if i in model:
                 print("entrou")
@@ -77,3 +78,5 @@ if __name__ == '__main__':
 
     else:
         print('Não foi dessa vez campeão')
+
+    print(instanceMapper.mapping)
