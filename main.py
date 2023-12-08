@@ -63,10 +63,17 @@ if __name__ == '__main__':
             print("Na FNC:", sal)
 
     sat_ou_nsat = solver.solve()
+    model=solver.get_model()
 
     if sat_ou_nsat:
         print(solver.get_model())
-        
+        for i in model:
+            print(f"{i}")
+        '''for i in instanceMapper.get_list_of_literals_from_mapping(instanceSatPlan.get_atoms()):
+            if i in model:
+                print("entrou")
+                print(f"{instanceMapper.mapping_reverse[i]}")
+'''
 
     else:
         print('Não foi dessa vez campeão')
