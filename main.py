@@ -1,7 +1,6 @@
 import sys
 from instance_manager.satplan_instance import SatPlanInstance, SatPlanInstanceMapper
 from pysat.solvers import Glucose4
-from pysat.formula import CNF
 
 def create_literal_for_level(level, literal):
     pure_atom = literal.replace("~","")
@@ -23,60 +22,203 @@ if __name__ == '__main__':
         print("Usage: python your_script.py <filename>")
         sys.exit(1)    
 
-    instanceSatPlan = SatPlanInstance(sys.argv[1])
-    instanceMapper = SatPlanInstanceMapper()
-    solver = Glucose4()
-    sal = CNF()
+    objetoSatPlanInstance = SatPlanInstance(sys.argv[1])
+    objetoSatPlanInstanceMapper = SatPlanInstanceMapper()
+    formula = Glucose4()
+    sequente = []
 
-    instanceMapper.add_list_of_literals_to_mapping(instanceSatPlan.get_atoms())
+    #Adicionando os literais da instância ao Mapping
+    objetoSatPlanInstanceMapper.add_list_of_literals_to_mapping(objetoSatPlanInstance.get_atoms())
 
-    n_abacaxi = 5
+    #Adicionando todos os estados como negativos
+    inicializacao = []
+    for stateInt in objetoSatPlanInstanceMapper.get_list_of_literals_from_mapping(objetoSatPlanInstance.get_state_atoms()):
+        inicializacao.append(stateInt*(-1))
 
-    for i in range(n_abacaxi):
-        add_literal_init = create_literals_for_level_from_list(i, instanceSatPlan.get_atoms())
-        instanceMapper.add_list_of_literals_to_mapping(add_literal_init)
-        lista_actions = instanceMapper.get_list_of_literals_from_mapping(add_literal_init)
+    print(f"Atoms inicializados negados: {inicializacao}")
+    formula.add_clause(inicializacao)
+    sequente.append(inicializacao)
 
-        for acao in instanceSatPlan.get_actions():
-            tomate = create_literals_for_level_from_list(i, instanceSatPlan.get_action_preconditions(acao))
-            instanceMapper.add_list_of_literals_to_mapping(tomate)
-            xuxu = create_literals_for_level_from_list(i, instanceSatPlan.get_initial_state())
-            instanceMapper.add_list_of_literals_to_mapping(xuxu)
-            for iroda in instanceMapper.get_list_of_literals_from_mapping(xuxu):
-                sal.append([iroda])
-                solver.add_clause([iroda])
-                print("Literal adicionado a sal/iroda:", iroda)
-            print("Precondi", tomate)
-            print("Precondi", instanceMapper.get_list_of_literals_from_mapping(tomate))
-            print("Na FNC:", sal)
+    #Adicionando o estado inicial
+    estadoInicial = []
+    for inicialStateInt in objetoSatPlanInstanceMapper.get_list_of_literals_from_mapping(objetoSatPlanInstance.get_initial_state()):
+        estadoInicial.append(inicialStateInt)
 
-            pitaya = create_literals_for_level_from_list(i, instanceSatPlan.get_action_posconditions(acao))
-            instanceMapper.add_list_of_literals_to_mapping(pitaya)
-            abobora = create_literals_for_level_from_list(i, instanceSatPlan.get_initial_state())
-            instanceMapper.add_list_of_literals_to_mapping(abobora)
-            for eitapapai in instanceMapper.get_list_of_literals_from_mapping(abobora):
-                sal.append([eitapapai])
-                solver.add_clause([eitapapai])
-                print("Literal adicionado a sal/eitapapai:", eitapapai)
-            print("Poscondi", pitaya)
-            print("Poscondi", instanceMapper.get_list_of_literals_from_mapping(pitaya))
-            print("Na FNC:", sal)
+    print(f"Estado inicial em int: {estadoInicial}")
+    formula.add_clause(estadoInicial)
+    sequente.append(estadoInicial)
 
-    sat_ou_nsat = solver.solve()
-    model=solver.get_model()
+    #Estado inicial em string
+    esatdoInicialString = []
+    for inicialStateString in objetoSatPlanInstance.get_initial_state():
+        esatdoInicialString.append(inicialStateString)
 
-    if sat_ou_nsat:
-        print(solver.get_model())
-        for i in model:
-            if i in instanceMapper.mapping:
-                print(instanceMapper.mapping_reverse[i])
-        '''for i in instanceMapper.get_list_of_literals_from_mapping(instanceSatPlan.get_atoms()):
-            if i in model:
-                print("entrou")
-                print(f"{instanceMapper.mapping_reverse[i]}")
-'''
+    print(f"Estado inicial em String: {esatdoInicialString}")
+
+    #Estadp final do atoms
+    estadoFinal = []
+    for finalStateInt in objetoSatPlanInstanceMapper.get_list_of_literals_from_mapping(objetoSatPlanInstance.get_final_state()):
+        estadoFinal.append(finalStateInt)
+
+    print(f"Estado final em int: {estadoFinal}")
+    formula.add_clause(estadoFinal)
+    sequente.append(estadoFinal)
+
+    #Estado final em string
+    finalStateString = []
+    for finalString in objetoSatPlanInstance.get_final_state():
+        finalStateString.append(finalString)
+    print(f"Estado final em string: {finalStateString}")
+
+    #Verificar todas ações em int
+    acoesTotalInt = []
+    for actionstotal in objetoSatPlanInstanceMapper.get_list_of_literals_from_mapping(objetoSatPlanInstance.get_actions()):
+        acoesTotalInt.append(actionstotal)
+
+    print(f"Todas as acoes em int: {acoesTotalInt}")
+
+    #Verificar todas ações em String
+    acoesTotalString = []
+    for actionstotalString in objetoSatPlanInstance.get_actions():
+        acoesTotalString.append(actionstotalString)
+
+    print(f"Todas as acoes em string: {acoesTotalString}")
+
+    #todos os estado em string 
+    estadostotalstring = []
+    for estadototal in objetoSatPlanInstance.get_state_atoms():
+        estadostotalstring.append(estadototal)
+
+    #Todos os estados em int
+    estadostotalint = []
+    for estadototalint in objetoSatPlanInstanceMapper.get_list_of_literals_from_mapping(objetoSatPlanInstance.get_state_atoms()):
+        estadostotalint.append(estadototalint)
+
+    print(f"Todas os estados em string e int: {estadostotalint}: {estadostotalstring}")
+
+    '''#Precondicoes em int
+    precondioncs = []
+    for actionsconditions in objetoSatPlanInstanceMapper.get_list_of_literals_from_mapping(objetoSatPlanInstance.action_preconditions):
+        precondioncs.append(actionsconditions)
+    
+    print(f"Todas as precondions em int: {precondioncs}")
+
+    #Poscondicoes em int
+    posconditions = []
+    for poscond in objetoSatPlanInstanceMapper.get_list_of_literals_from_mapping(objetoSatPlanInstance.action_posconditions):
+        posconditions.append(poscond)
+    
+    print(f"Todas as poscondition em int: {posconditions}")'''
+
+
+    #Adicionando regras para ações e suas respectivas pre e pos condicoes
+    for action in objetoSatPlanInstanceMapper.get_list_of_literals_from_mapping(objetoSatPlanInstance.get_actions()):
+        clause = []
+        
+        clause.append(action)
+        print(f"só para ver oq vai ter1: {clause}")
+        for preCondition in objetoSatPlanInstanceMapper.get_list_of_literals_from_mapping(objetoSatPlanInstance.get_action_preconditions(objetoSatPlanInstanceMapper.get_literal_from_mapping_reverse(action))):
+            clause.append(preCondition*(-1))
+        print(f"só para ver oq vai ter2: {clause}")
+        for posCondition in objetoSatPlanInstanceMapper.get_list_of_literals_from_mapping(objetoSatPlanInstance.get_action_posconditions(objetoSatPlanInstanceMapper.get_literal_from_mapping_reverse(action))):
+            clause.append(posCondition)
+        print(f"só para ver oq vai ter3: {clause}")
+        formula.add_clause(clause)
+        sequente.append(clause)
+    print(f"só para ver oq vai ter4: {clause}")
+    #Adicionando o estado final
+    for atomFinalState in objetoSatPlanInstanceMapper.get_list_of_literals_from_mapping(objetoSatPlanInstance.get_final_state()):
+        formula.add_clause([atomFinalState])
+        sequente.append(atomFinalState)
+    
+    print(sequente)
+
+    print(objetoSatPlanInstanceMapper.mapping)
+
+    if formula.solve():
+        # A fórmula é satisfatível, a solução foi encontrada
+        model = formula.get_model()
+        print(formula.solve())
+        print(model)
+
+        # Extraia a sequência de ações da valoração das variáveis
+        actions_sequence = []
+        level = 1
+        for action in model:
+            for actionInt in objetoSatPlanInstanceMapper.get_list_of_literals_from_mapping(objetoSatPlanInstance.get_actions()):
+                if actionInt in model:
+                    actions_sequence.append(f"{level}_{objetoSatPlanInstanceMapper.mapping_reverse[actionInt]}")
+                    level += 1
+        
+        # Imprima a sequência de ações
+        print("Sequência de ações:")
+        for j in actions_sequence:
+            print(j)
 
     else:
-        print('Não foi dessa vez campeão')
+        print("NÃO É SATISFAZÍVEL")
 
-    print(instanceMapper.mapping)
+    
+
+    
+
+    
+
+'''
+    for action in instanceSatPlan.get_actions():
+        if action[0] == '~':
+            action_int = instanceMapper.mapping[action.replace("~", "")]    
+        else:
+            action_int = instanceMapper.mapping[action]
+
+        # Adicione cláusulas para as pré-condições da ação
+        for precondition in instanceSatPlan.get_action_preconditions(action):
+            if precondition[0] == "~":
+                precondition_int = instanceMapper.mapping[precondition.replace("~", "")]    
+            else:
+                precondition_int = instanceMapper.mapping[precondition]
+            solver.add_clause([action_int*(-1), precondition_int])
+
+        # Adicione cláusulas para as pós-condições da ação
+        for poscondition in instanceSatPlan.get_action_posconditions(action):
+            if poscondition[0] == "~":
+                poscondition_int = instanceMapper.mapping[poscondition.replace("~", "")]
+            else:
+                poscondition_int = instanceMapper.mapping[poscondition]
+            solver.add_clause([action_int, poscondition_int*(-1)])
+
+    # Adicione cláusulas para as condições iniciais
+
+    # Adicione cláusulas para as condições finais
+    for final_atom in instanceSatPlan.get_final_state():
+        if final_atom[0] == "~":
+            final_atom_int = instanceMapper.mapping[final_atom.replace("~", "")]    
+        else:
+            final_atom_int = instanceMapper.mapping[final_atom]
+        solver.add_clause([final_atom_int])
+
+    # Verifique a satisfatibilidade
+    if solver.solve():
+        # A fórmula é satisfatível, a solução foi encontrada
+        model = solver.get_model()
+        print(model)
+    else:
+        print("Não foi possível encontrar uma solução.")
+        '''
+'''
+        # Extraia a sequência de ações da valoração das variáveis
+        actions_sequence = []
+        for level, atom in enumerate(instanceSatPlan.get_actions(), start=1):
+            atom_int = instanceMapper.mapping[atom]
+
+            # Verifique se a ação é escolhida no nível atual
+            if atom_int in model:
+                actions_sequence.append(f"{level}_{atom}")
+
+        # Imprima a sequência de ações
+        print("Sequência de ações:")
+        for action in actions_sequence:
+            print(action)
+'''
+
+
