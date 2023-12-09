@@ -2,9 +2,8 @@ import sys
 from instance_manager.satplan_instance import SatPlanInstance, SatPlanInstanceMapper
 from pysat.solvers import Glucose4
 import time
+from datetime import timedelta
 
-
-start_time = time.time()
 
 def create_literal_for_level(level, literal):
     pure_atom = literal.replace("~","")
@@ -24,104 +23,101 @@ def create_state_from_literals(literals, all_atoms):
 if __name__ == '__main__':
     if len(sys.argv) != 2:
         print("Usage: python your_script.py <filename>")
-        sys.exit(1)    
+        sys.exit(1)
 
-    objetoSatPlanInstance = SatPlanInstance(sys.argv[1])
-    objetoSatPlanInstanceMapper = SatPlanInstanceMapper()
-    formula = Glucose4()
-    sequente = []
+    object_satplan_instance = SatPlanInstance(sys.argv[1])
+    level = 1
 
-    levels = 1
-    sequente = []
+    start_time = time.time()
 
-    #INITIAL STATE [CHECK]
-    a = create_literals_for_level_from_list(0,objetoSatPlanInstance.get_initial_state())
-    a_other_states = create_literals_for_level_from_list(0, objetoSatPlanInstance.get_state_atoms())
-    objetoSatPlanInstanceMapper.add_list_of_literals_to_mapping(a)
-    
-    for state in objetoSatPlanInstanceMapper.get_list_of_literals_from_mapping(a):
-        formula.add_clause([state])
-        sequente.append([state])
+    while (True):
+        formula = Glucose4()
+        object_satplan_instance_mapper = SatPlanInstanceMapper()
 
-    for state in create_literals_for_level_from_list(0, objetoSatPlanInstance.get_state_atoms()):
-        if state not in a:
-            objetoSatPlanInstanceMapper.add_literal_to_mapping(state)
-            state_value = objetoSatPlanInstanceMapper.get_literal_from_mapping(state)
-            formula.add_clause([-state_value])
-            sequente.append([-state_value])
+        level_initial_state = create_literals_for_level_from_list(0,object_satplan_instance.get_initial_state())
 
+        object_satplan_instance_mapper.add_list_of_literals_to_mapping(level_initial_state)
 
-    #FINAL STATE [CHECK]
-    b = create_literals_for_level_from_list(levels,objetoSatPlanInstance.get_final_state())
-    objetoSatPlanInstanceMapper.add_list_of_literals_to_mapping(b)
+        #ADD INITIAL STATE
+        for initial_atom in object_satplan_instance_mapper.get_list_of_literals_from_mapping(level_initial_state):
+            formula.add_clause([initial_atom])
 
-    for state in objetoSatPlanInstanceMapper.get_list_of_literals_from_mapping(b):
-        formula.add_clause([state])
+        other_states = create_literals_for_level_from_list(0,object_satplan_instance.get_state_atoms())
 
-    #ACTIONS
-    for level in range(levels):
+        #NEGA TODOS OS OUTROS ESTADOS
+        for state in other_states:
+            if (state not in level_initial_state):
+                object_satplan_instance_mapper.add_literal_to_mapping(state)
+                state_int = object_satplan_instance_mapper.get_literal_from_mapping(state)
+                formula.add_clause([-state_int])
+
+        #ADD FINAL STATE
+        level_final_state = create_literals_for_level_from_list(level, object_satplan_instance.get_final_state())
+        object_satplan_instance_mapper.add_list_of_literals_to_mapping(level_final_state)
+        for final_atom in object_satplan_instance_mapper.get_list_of_literals_from_mapping(level_final_state):
+            formula.add_clause([final_atom])
         
-        c = create_literals_for_level_from_list(level, objetoSatPlanInstance.get_actions())
-        state_atoms = []
 
-        for action in c:
-            state_atoms.append(objetoSatPlanInstance.get_state_atoms())
+        all_actions = []
 
-        objetoSatPlanInstanceMapper.add_list_of_literals_to_mapping(c)
+        for i in range(level):
+            #ESCOLHER UMA AÇÃO
+            actions_per_level = create_literals_for_level_from_list(i, object_satplan_instance.get_actions())
 
-        actions_list = objetoSatPlanInstanceMapper.get_list_of_literals_from_mapping(c)
-        formula.add_clause(actions_list)
+            for item in actions_per_level:
+                all_actions.append(item)
 
-        for action in actions_list:
-            if action != action+1:
-                formula.add_clause([-action,-action+1])
+            object_satplan_instance_mapper.add_list_of_literals_to_mapping(actions_per_level)
+            actions_int = object_satplan_instance_mapper.get_list_of_literals_from_mapping(actions_per_level)
+            formula.add_clause(actions_int)
 
-        for action in objetoSatPlanInstance.get_actions():
+            #SOMENTE UMA AÇÃO PODE SER ESCOLHIDA POR LEVEL
+            for action in actions_int:
+                for action_b in actions_int:
+                    if (action_b != action):
+                        formula.add_clause([-action, -action_b])
 
-            d = create_literals_for_level_from_list(level,objetoSatPlanInstance.get_action_preconditions(action))
-            objetoSatPlanInstanceMapper.add_list_of_literals_to_mapping(d)
-            action_level = f"{level}_"+action
-            action_int = objetoSatPlanInstanceMapper.get_literal_from_mapping(action_level)
+            #REGRA PARA PRE CONDICOES
+            for action in object_satplan_instance.get_actions():
+                preconditions_per_level = create_literals_for_level_from_list(i, object_satplan_instance.get_action_preconditions(action))
+                object_satplan_instance_mapper.add_list_of_literals_to_mapping(preconditions_per_level)
 
-            for pre_condition in objetoSatPlanInstanceMapper.get_list_of_literals_from_mapping(d):
-                formula.add_clause([-action_int, pre_condition])
+                for precondition in preconditions_per_level:
+                    formula.add_clause([-object_satplan_instance_mapper.get_literal_from_mapping(f"{i}_{action}"), object_satplan_instance_mapper.get_literal_from_mapping(precondition)])
+                    
+                posconditions_per_level = create_literals_for_level_from_list(i+1, object_satplan_instance.get_action_posconditions(action))
+                object_satplan_instance_mapper.add_list_of_literals_to_mapping(posconditions_per_level)
 
-            e = create_literals_for_level_from_list(level+1,objetoSatPlanInstance.get_action_posconditions(action))
-            objetoSatPlanInstanceMapper.add_list_of_literals_to_mapping(e)
+                for poscondition in posconditions_per_level:
+                    formula.add_clause([-object_satplan_instance_mapper.get_literal_from_mapping(f"{i}_{action}"), object_satplan_instance_mapper.get_literal_from_mapping(poscondition)])
 
-            for pos_condition in objetoSatPlanInstanceMapper.get_list_of_literals_from_mapping(e):
-                formula.add_clause([-action_int, -pos_condition])
+                for state in object_satplan_instance.get_state_atoms():
+                    state_in_next_level = create_literal_for_level(i+1, state)
+                    state_in_this_level = create_literal_for_level(i, state)
 
-        new_state_atoms = create_literals_for_level_from_list(level, objetoSatPlanInstance.get_state_atoms())
-        new_state_atoms_b = create_literals_for_level_from_list(level+1, objetoSatPlanInstance.get_state_atoms())
-        objetoSatPlanInstanceMapper.add_list_of_literals_to_mapping(new_state_atoms)
-        objetoSatPlanInstanceMapper.add_list_of_literals_to_mapping(new_state_atoms_b)
-        
-        for state in objetoSatPlanInstanceMapper.get_list_of_literals_from_mapping(new_state_atoms):
-            clause = [-action_int]
-            clause.append(-state)
-            for state_b in objetoSatPlanInstanceMapper.get_list_of_literals_from_mapping(new_state_atoms_b):
-                clause.append(state_b)
-                formula.add_clause(clause)
+                    if( state_in_next_level not in posconditions_per_level and f"~{state_in_next_level}" not in posconditions_per_level ):
+                        object_satplan_instance_mapper.add_literal_to_mapping(state_in_next_level)
+                        object_satplan_instance_mapper.add_literal_to_mapping(state_in_this_level)
 
-        if formula.solve() == True:
-            for action in formula.get_model():
-                if action > 0:
-                    print(objetoSatPlanInstanceMapper.get_literal_from_mapping_reverse(action))
+                        state_in_next_level_int = object_satplan_instance_mapper.get_literal_from_mapping(state_in_next_level)
+                        state_in_this_level_int = object_satplan_instance_mapper.get_literal_from_mapping(state_in_this_level)
+
+                        formula.add_clause([-object_satplan_instance_mapper.get_literal_from_mapping(f"{i}_{action}"), -state_in_this_level_int, state_in_next_level_int])
+                        formula.add_clause([-object_satplan_instance_mapper.get_literal_from_mapping(f"{i}_{action}"), state_in_this_level_int, -state_in_next_level_int])
+
+        if formula.solve():
+            print(f"SAT em {i+1} passos!")
+
+            end_time = time.time()               
+
+            model = formula.get_model()
+
+            for action in object_satplan_instance_mapper.get_list_of_literals_from_mapping_reverse(model):
+                if(action in all_actions):
+                    print(action)
+
+            print(f"Resolvido em {end_time - start_time} segundos")
             break
         else:
-            print(f"level {level} não-sat")
+            print(f"NÃO-SAT para {i+1} passos...")
             level += 1
-
-    for clausula in sequente:
-        print(clausula)
-
-
-end_time = time.time()
-
-elapsed_time = end_time - start_time
-
-print(f"Tempo: {elapsed_time} segundos")
-
-
-
