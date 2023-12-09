@@ -1,6 +1,10 @@
 import sys
 from instance_manager.satplan_instance import SatPlanInstance, SatPlanInstanceMapper
 from pysat.solvers import Glucose4
+import time
+
+
+start_time = time.time()
 
 def create_literal_for_level(level, literal):
     pure_atom = literal.replace("~","")
@@ -96,42 +100,27 @@ if __name__ == '__main__':
 
     print(f"Todas os estados em string e int: {estadostotalint}: {estadostotalstring}")
 
-    '''#Precondicoes em int
-    precondioncs = []
-    for actionsconditions in objetoSatPlanInstanceMapper.get_list_of_literals_from_mapping(objetoSatPlanInstance.action_preconditions):
-        precondioncs.append(actionsconditions)
-    
-    print(f"Todas as precondions em int: {precondioncs}")
-
-    #Poscondicoes em int
-    posconditions = []
-    for poscond in objetoSatPlanInstanceMapper.get_list_of_literals_from_mapping(objetoSatPlanInstance.action_posconditions):
-        posconditions.append(poscond)
-    
-    print(f"Todas as poscondition em int: {posconditions}")'''
-
-
     #Adicionando regras para ações e suas respectivas pre e pos condicoes
     for action in objetoSatPlanInstanceMapper.get_list_of_literals_from_mapping(objetoSatPlanInstance.get_actions()):
         clause = []
         
         clause.append(action)
-        print(f"só para ver oq vai ter1: {clause}")
+
         for preCondition in objetoSatPlanInstanceMapper.get_list_of_literals_from_mapping(objetoSatPlanInstance.get_action_preconditions(objetoSatPlanInstanceMapper.get_literal_from_mapping_reverse(action))):
-            clause.append(preCondition*(-1))
-        print(f"só para ver oq vai ter2: {clause}")
+            clause.append(preCondition)
+  
         for posCondition in objetoSatPlanInstanceMapper.get_list_of_literals_from_mapping(objetoSatPlanInstance.get_action_posconditions(objetoSatPlanInstanceMapper.get_literal_from_mapping_reverse(action))):
             clause.append(posCondition)
-        print(f"só para ver oq vai ter3: {clause}")
+ 
         formula.add_clause(clause)
         sequente.append(clause)
     print(f"só para ver oq vai ter4: {clause}")
+
     #Adicionando o estado final
     for atomFinalState in objetoSatPlanInstanceMapper.get_list_of_literals_from_mapping(objetoSatPlanInstance.get_final_state()):
         formula.add_clause([atomFinalState])
         sequente.append(atomFinalState)
     
-    print(sequente)
 
     print(objetoSatPlanInstanceMapper.mapping)
 
@@ -139,16 +128,17 @@ if __name__ == '__main__':
         # A fórmula é satisfatível, a solução foi encontrada
         model = formula.get_model()
         print(formula.solve())
-        print(model)
+        print(f"esse é o modelo: {model}")
 
         # Extraia a sequência de ações da valoração das variáveis
         actions_sequence = []
         level = 1
         for action in model:
             for actionInt in objetoSatPlanInstanceMapper.get_list_of_literals_from_mapping(objetoSatPlanInstance.get_actions()):
-                if actionInt in model:
+                if actionInt*(-1) in model:
                     actions_sequence.append(f"{level}_{objetoSatPlanInstanceMapper.mapping_reverse[actionInt]}")
                     level += 1
+                print(f"actions_sequence: {actions_sequence}")
         
         # Imprima a sequência de ações
         print("Sequência de ações:")
@@ -157,6 +147,12 @@ if __name__ == '__main__':
 
     else:
         print("NÃO É SATISFAZÍVEL")
+
+end_time = time.time()
+
+elapsed_time = end_time - start_time
+
+print(f"Tempo: {elapsed_time} segundos")
 
     
 
