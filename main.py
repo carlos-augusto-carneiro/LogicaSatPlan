@@ -1,6 +1,10 @@
 import sys
 from instance_manager.satplan_instance import SatPlanInstance, SatPlanInstanceMapper
 from pysat.solvers import Glucose4
+import time
+
+
+start_time = time.time()
 
 def create_literal_for_level(level, literal):
     pure_atom = literal.replace("~","")
@@ -113,7 +117,11 @@ if __name__ == '__main__':
         print(clausula)
 
 
+end_time = time.time()
 
+elapsed_time = end_time - start_time
+
+print(f"Tempo: {elapsed_time} segundos")
 
 
 
